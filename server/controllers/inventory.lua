@@ -510,9 +510,14 @@ function InventoryControllers.MoveSlotItems(fromInventory, fromSlot, toInventory
 
     for _, row in ipairs(moving) do
       if crossInventory then
-        local allowed = InventoryMutationMetrics.Measure(context._timing, 'guardMs',
+        -- Keep the guard's reason (e.g. "Unequip this item before moving or
+        -- removing it.") so the player sees why, instead of a generic conflict.
+        local allowed, reason = InventoryMutationMetrics.Measure(context._timing, 'guardMs',
           GuardsAPI.CanMoveInstanceSnapshot, NormalizeLockedItem(row), context)
-        if not allowed then return false end
+        if not allowed then
+          failureCode, failureMessage = 'denied', reason or 'That item cannot be moved right now.'
+          return false
+        end
       end
       movedFacts[tonumber(row.id)] = {
         definitionId = tonumber(row.item_id), revision = (tonumber(row.row_revision) or 0) + 1,
@@ -521,9 +526,12 @@ function InventoryControllers.MoveSlotItems(fromInventory, fromSlot, toInventory
     local swapContext = MutationContext(context, 'slot_swap')
     for _, row in ipairs(occupant or {}) do
       if crossInventory then
-        local allowed = InventoryMutationMetrics.Measure(context._timing, 'guardMs',
+        local allowed, reason = InventoryMutationMetrics.Measure(context._timing, 'guardMs',
           GuardsAPI.CanMoveInstanceSnapshot, NormalizeLockedItem(row), swapContext)
-        if not allowed then return false end
+        if not allowed then
+          failureCode, failureMessage = 'denied', reason or 'That item cannot be moved right now.'
+          return false
+        end
       end
       occupantFacts[tonumber(row.id)] = {
         definitionId = tonumber(row.item_id), revision = (tonumber(row.row_revision) or 0) + 1,
